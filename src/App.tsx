@@ -801,6 +801,22 @@ export default function App() {
 
 if (error) throw error;
 
+await fetch("/api/send-feedback-email", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: form.name,
+    email: form.email,
+    event_date: form.eventDate,
+    inflatable: form.inflatable,
+    how_heard: form.howHeard,
+    rating_overall: form.ratingOverall,
+    favorite: form.favorite,
+    improve: form.improve,
+  }),
+});
 setSubmitted(true);
     } catch (err) {
   console.error("Submit error:", err);
