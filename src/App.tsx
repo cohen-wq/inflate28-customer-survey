@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-
+import { supabase } from "./lib/supabase";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const FontStyle = () => (
@@ -762,12 +762,34 @@ export default function App() {
     e.preventDefault();
     try {
       // TODO: wire this to Supabase (insert into a feedback table)
-      console.log("Submitting survey payload:", form);
-      setSubmitted(true);
+      const { error } = await supabase.from("feedback").insert({
+  name: form.name,
+  email: form.email,
+  event_date: form.eventDate,
+  inflatable: form.inflatable,
+  how_heard: form.howHeard,
+  rating_overall: form.ratingOverall,
+  rating_comm: form.ratingComm,
+  rating_setup: form.ratingSetup,
+  rating_clean: form.ratingClean,
+  rating_booking: form.ratingBooking,
+  favorite: form.favorite,
+  improve: form.improve,
+  improve_skills: form.improveSkills,
+  publish_review: form.publishReview,
+  use_name: form.useName,
+  user_agent: navigator.userAgent,
+});
+
+if (error) throw error;
+
+setSubmitted(true);
     } catch (err) {
-      console.error("Submit error:", err);
+  console.error("Submit error:", err);
+  alert("Something went wrong submitting your feedback. Please try again.");
+}
     }
-  };
+  
 
   const goToStep = (i: number) => {
     setUiActiveStep(i);
