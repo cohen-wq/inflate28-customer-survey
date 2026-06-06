@@ -801,7 +801,7 @@ export default function App() {
 
 if (error) throw error;
 
-await fetch("/api/send-feedback-email", {
+fetch("/api/send-feedback-email", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -816,6 +816,8 @@ await fetch("/api/send-feedback-email", {
     favorite: form.favorite,
     improve: form.improve,
   }),
+}).catch((emailError) => {
+  console.error("Email notification failed:", emailError);
 });
 setSubmitted(true);
     } catch (err) {
