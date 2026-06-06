@@ -658,7 +658,15 @@ function ProgressBar({ activeStep, completed, onStepClick }: { activeStep: numbe
 }
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
-function StarRating({ label, value, onChange }) {
+function StarRating({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
   const [hovered, setHovered] = useState(0);
   return (
     <div className={`rating-row${value > 0 ? " rated" : ""}`}>
@@ -693,7 +701,17 @@ function StarRating({ label, value, onChange }) {
 }
 
 // ─── Toggle ───────────────────────────────────────────────────────────────────
-function Toggle({ label, id, checked, onChange }) {
+function Toggle({
+  label,
+  id,
+  checked,
+  onChange,
+}: {
+  label: string;
+  id: string;
+  checked: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
   return (
     <div className="toggle-row">
       <span className="toggle-text">{label}</span>
@@ -707,7 +725,7 @@ function Toggle({ label, id, checked, onChange }) {
 }
 
 // ─── Derive active step from scroll / form state ──────────────────────────────
-function getActiveStep(form) {
+function getActiveStep(form: any) {
   if (form.favorite || form.improve || form.improveSkills) return 3;
   if (form.ratingOverall || form.ratingComm || form.ratingSetup || form.ratingClean || form.ratingBooking) return 2;
   if (form.inflatable || form.howHeard) return 1;
