@@ -309,10 +309,14 @@ const FontStyle = () => (
 
     .stars-row { display: flex; gap: 3px; flex-shrink: 0; }
 
+    /* allow horizontal pointer tracking across stars */
+    .stars-row { touch-action: none; }
     .star-btn {
       background: none; border: none; cursor: pointer;
       padding: 3px; line-height: 1;
       transition: transform 0.15s ease;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .star-btn:hover { transform: scale(1.2); }
 
@@ -504,6 +508,13 @@ const FontStyle = () => (
     }
     .submit-btn:active { transform: translateY(0); }
 
+    .submit-btn[disabled] {
+      opacity: 0.7;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
     .submit-note {
       margin-top: 14px;
       font-size: 12px;
@@ -668,6 +679,18 @@ function StarRating({
   onChange: (value: number) => void;
 }) {
   const [hovered, setHovered] = useState(0);
+  const [tracking, setTracking] = useState(false);
+
+  useEffect(() => {
+    const onUp = () => setTracking(false);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
   return (
     <div className={`rating-row${value > 0 ? " rated" : ""}`}>
       <span className="rating-label">{label}</span>
@@ -681,8 +704,26 @@ function StarRating({
               type="button"
               className="star-btn"
               onClick={() => onChange(star)}
-              onMouseEnter={() => setHovered(star)}
-              onMouseLeave={() => setHovered(0)}
+              onPointerDown={(e) => {
+                // start tracking for slide gestures; set selection immediately
+                try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+                e.preventDefault();
+                setTracking(true);
+                setHovered(star);
+                onChange(star);
+              }}
+              onPointerEnter={() => {
+                setHovered(star);
+                if (tracking) onChange(star);
+              }}
+              onPointerLeave={() => {
+                if (!tracking) setHovered(0);
+              }}
+              onPointerUp={(e) => {
+                try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
+                setTracking(false);
+              }}
+              onPointerCancel={() => setTracking(false)}
               aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
             >
               <svg
@@ -772,12 +813,15 @@ export default function App() {
 
   const derivedStep = getActiveStep(form);
   const [uiActiveStep, setUiActiveStep] = useState<number>(derivedStep);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setUiActiveStep(derivedStep);
   }, [derivedStep]);
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       // TODO: wire this to Supabase (insert into a feedback table)
       const { error } = await supabase.from("feedback").insert({
@@ -823,6 +867,7 @@ setSubmitted(true);
     } catch (err) {
   console.error("Submit error:", err);
   alert("Something went wrong submitting your feedback. Please try again.");
+  setSubmitting(false);
 }
     }
   
@@ -994,8 +1039,8 @@ setSubmitted(true);
               <textarea id="improve" placeholder="Your honest feedback helps us grow. This is never published." value={form.improve} onChange={set("improve")} style={{ minHeight: 140 }} />
             </div>
               <div className="field">
-                <label className="field-label" htmlFor="improveSkills">One thing we can improve on — skills-wise</label>
-                <textarea id="improveSkills" placeholder="E.g. setup speed, communication, equipment handling…" value={form.improveSkills} onChange={set("improveSkills")} style={{ minHeight: 120 }} />
+                <label className="field-label" htmlFor="improveSkills">Were there any issues, damages, or safety concerns at your event?</label>
+                <textarea id="improveSkills" placeholder="Please describe any problems, equipment damage, or safety concerns (this is private)." value={form.improveSkills} onChange={set("improveSkills")} style={{ minHeight: 120 }} />
               </div>
           </div>
 
