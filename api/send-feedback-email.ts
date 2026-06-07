@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { error } = await resend.emails.send({
       from: "Inflate Twenty-Eight Survey <onboarding@resend.dev>",
-      to: ["Inflate Twenty-Eight <party@inflatetwentyeight.com>"],
+      to: ["cohen.p.blanchard@gmail.com"],
       subject: `New survey response from ${data.name || "a customer"}`,
       html: `
         <h2>New Customer Feedback</h2>
