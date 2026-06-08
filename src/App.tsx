@@ -263,6 +263,10 @@ const FontStyle = () => (
       transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       outline: none;
     }
+    /* move invalid marker to left for field-level invalid states and avoid overlap */
+    .field input[type="text"], .field input[type="email"], .field input[type="date"], .field select, .field textarea {
+      padding-left: 44px;
+    }
     input[type="text"]:focus,
     input[type="email"]:focus,
     input[type="date"]:focus,
@@ -502,7 +506,6 @@ const FontStyle = () => (
     .toggle-row.invalid::after {
       content: '!';
       position: absolute;
-      right: 14px;
       top: 50%;
       transform: translateY(-50%);
       width: 20px;
@@ -518,6 +521,12 @@ const FontStyle = () => (
       pointer-events: none;
       z-index: 5;
     }
+    /* place field-level invalid marker to the left (so it appears beside dropdowns) */
+    .field.invalid::after { left: 14px; right: auto; }
+    /* stronger specificity to override other rules or earlier builds */
+    .card .field.invalid::after { left: 14px !important; right: auto !important; }
+    /* ensure select wrapper doesn't clip the left marker and keep arrow on right */
+    .field .select-wrapper { position: relative; }
 
     /* ─── Submit ──────────────────────────────────────────────────── */
     .submit-section { text-align: center; padding: 8px 0 0; }
@@ -863,32 +872,11 @@ export default function App() {
   }, [derivedStep]);
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-
-    // Validate individual fields
-    const invalid: Record<string, boolean> = {};
-    if (!form.name || !form.name.trim()) invalid.name = true;
-    if (!form.email || !form.email.trim()) invalid.email = true;
-    if (!form.eventDate) invalid.eventDate = true;
-    if (!form.inflatable || !form.inflatable.trim()) invalid.inflatable = true;
-    if (!form.howHeard || !form.howHeard.trim()) invalid.howHeard = true;
-    if (form.ratingOverall <= 0) invalid.ratingOverall = true;
-    if (form.ratingComm <= 0) invalid.ratingComm = true;
-    if (form.ratingSetup <= 0) invalid.ratingSetup = true;
-    if (form.ratingClean <= 0) invalid.ratingClean = true;
-    if (form.ratingBooking <= 0) invalid.ratingBooking = true;
-    if (!form.favorite || !form.favorite.trim()) invalid.favorite = true;
-    if (!form.improve?.trim() && !form.improveSkills?.trim()) {
-      invalid.improve = true;
-      invalid.improveSkills = true;
-    }
-    if (!permissionTouched) {
-      invalid.publishReview = true;
-      invalid.useName = true;
-    }
-
+    // Run centralized validation to prevent bypasses
+    const invalid = validateForm();
     if (Object.keys(invalid).length > 0) {
       setInvalidFields(invalid);
-      // find first invalid field and scroll to it
+      // scroll to first invalid field
       const order = [
         'name','email','eventDate',
         'inflatable','howHeard',
@@ -1008,6 +996,31 @@ export default function App() {
       return next;
     });
   }, [form, permissionTouched]);
+
+    // centralized validation helper used before submit
+    const validateForm = () => {
+      const invalid: Record<string, boolean> = {};
+      if (!form.name || !form.name.trim()) invalid.name = true;
+      if (!form.email || !form.email.trim()) invalid.email = true;
+      if (!form.eventDate) invalid.eventDate = true;
+      if (!form.inflatable || !form.inflatable.trim()) invalid.inflatable = true;
+      if (!form.howHeard || !form.howHeard.trim()) invalid.howHeard = true;
+      if (form.ratingOverall <= 0) invalid.ratingOverall = true;
+      if (form.ratingComm <= 0) invalid.ratingComm = true;
+      if (form.ratingSetup <= 0) invalid.ratingSetup = true;
+      if (form.ratingClean <= 0) invalid.ratingClean = true;
+      if (form.ratingBooking <= 0) invalid.ratingBooking = true;
+      if (!form.favorite || !form.favorite.trim()) invalid.favorite = true;
+      if (!form.improve?.trim() && !form.improveSkills?.trim()) {
+        invalid.improve = true;
+        invalid.improveSkills = true;
+      }
+      if (!permissionTouched) {
+        invalid.publishReview = true;
+        invalid.useName = true;
+      }
+      return invalid;
+    };
 
   // ── Success Screen ──────────────────────────────────────────────────────────
   if (submitted) {
