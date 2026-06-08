@@ -363,13 +363,14 @@ const FontStyle = () => (
       transition: border-color 0.2s ease;
     }
     .toggle-row:has(input:checked) { border-color: var(--border-hover); }
-    .toggle-row.invalid { border-color: #e45757; }
+    .toggle-row.invalid { border-color: #e45757; padding-right: 50px; }
 
     .toggle-text { font-size: 14px; font-weight: 400; color: var(--charcoal-mid); flex: 1; }
 
     .toggle-switch {
       position: relative; width: 48px; height: 28px;
       flex-shrink: 0; cursor: pointer;
+      padding: 6px; /* larger touch target */
     }
     .toggle-switch input { display: none; }
     .toggle-track {
@@ -967,7 +968,8 @@ export default function App() {
   const ratingsDone = !!(
     form.ratingOverall > 0 && form.ratingComm > 0 && form.ratingSetup > 0 && form.ratingClean > 0 && form.ratingBooking > 0
   );
-  const feedbackDone = !!(form.favorite.trim() && (form.improve.trim() || form.improveSkills.trim()));
+  // require private 'improve' field explicitly before marking feedback done
+  const feedbackDone = !!(form.favorite.trim() && form.improve.trim());
   const permissionsDone = !!permissionTouched;
 
   const completed = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
@@ -1011,10 +1013,10 @@ export default function App() {
       if (form.ratingClean <= 0) invalid.ratingClean = true;
       if (form.ratingBooking <= 0) invalid.ratingBooking = true;
       if (!form.favorite || !form.favorite.trim()) invalid.favorite = true;
-      if (!form.improve?.trim() && !form.improveSkills?.trim()) {
-        invalid.improve = true;
-        invalid.improveSkills = true;
-      }
+      // require `improve` even if `improveSkills` is filled
+      if (!form.improve || !form.improve.trim()) invalid.improve = true;
+      // still surface improveSkills as its own field (optional but validated)
+      if (!form.improveSkills || !form.improveSkills.trim()) invalid.improveSkills = true;
       if (!permissionTouched) {
         invalid.publishReview = true;
         invalid.useName = true;
