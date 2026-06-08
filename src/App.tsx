@@ -208,6 +208,16 @@ const FontStyle = () => (
       box-shadow: 0 2px 12px var(--shadow-hover), 0 6px 28px var(--shadow-hover);
       border-color: var(--border-hover);
     }
+    .card.invalid {
+      border-color: #e45757;
+      animation: flashBorder 0.9s ease 2;
+      box-shadow: 0 2px 12px rgba(228,87,87,0.06), 0 6px 28px rgba(228,87,87,0.04);
+    }
+    @keyframes flashBorder {
+      0% { border-color: #e45757; }
+      50% { border-color: var(--border); }
+      100% { border-color: #e45757; }
+    }
     @media (max-width: 480px) { .card { padding: 26px 20px 30px; } }
 
     .section-title {
@@ -814,62 +824,84 @@ export default function App() {
   const derivedStep = getActiveStep(form);
   const [uiActiveStep, setUiActiveStep] = useState<number>(derivedStep);
   const [submitting, setSubmitting] = useState(false);
+  const [invalidSections, setInvalidSections] = useState<boolean[]>([false, false, false, false, false]);
 
   useEffect(() => {
     setUiActiveStep(derivedStep);
   }, [derivedStep]);
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+
+    // Validate sections before submitting
+    const completedLocal = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
+    const invalid = completedLocal.map((c) => !c);
+    if (invalid.some(Boolean)) {
+      setInvalidSections(invalid);
+      // scroll to first invalid section
+      const firstInvalid = invalid.findIndex(Boolean);
+      const ids = [
+        'step-info',
+        'step-details',
+        'step-ratings',
+        'step-feedback',
+        'step-permissions',
+      ];
+      const el = document.getElementById(ids[firstInvalid]);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
     try {
-      // TODO: wire this to Supabase (insert into a feedback table)
       const { error } = await supabase.from("feedback").insert({
-  name: form.name,
-  email: form.email,
-  event_date: form.eventDate,
-  inflatable: form.inflatable,
-  how_heard: form.howHeard,
-  rating_overall: form.ratingOverall,
-  rating_comm: form.ratingComm,
-  rating_setup: form.ratingSetup,
-  rating_clean: form.ratingClean,
-  rating_booking: form.ratingBooking,
-  favorite: form.favorite,
-  improve: form.improve,
-  improve_skills: form.improveSkills,
-  publish_review: form.publishReview,
-  use_name: form.useName,
-  user_agent: navigator.userAgent,
-});
+        name: form.name,
+        email: form.email,
+        event_date: form.eventDate,
+        inflatable: form.inflatable,
+        how_heard: form.howHeard,
+        rating_overall: form.ratingOverall,
+        rating_comm: form.ratingComm,
+        rating_setup: form.ratingSetup,
+        rating_clean: form.ratingClean,
+        rating_booking: form.ratingBooking,
+        favorite: form.favorite,
+        improve: form.improve,
+        improve_skills: form.improveSkills,
+        publish_review: form.publishReview,
+        use_name: form.useName,
+        user_agent: navigator.userAgent,
+      });
 
-if (error) throw error;
+      if (error) throw error;
 
-fetch("/api/send-feedback-email", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    name: form.name,
-    email: form.email,
-    event_date: form.eventDate,
-    inflatable: form.inflatable,
-    how_heard: form.howHeard,
-    rating_overall: form.ratingOverall,
-    favorite: form.favorite,
-    improve: form.improve,
-  }),
-}).catch((emailError) => {
-  console.error("Email notification failed:", emailError);
-});
-setSubmitted(true);
+      fetch("/api/send-feedback-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          event_date: form.eventDate,
+          inflatable: form.inflatable,
+          how_heard: form.howHeard,
+          rating_overall: form.ratingOverall,
+          favorite: form.favorite,
+          improve: form.improve,
+          improveSkills: form.improveSkills,
+        }),
+      }).catch((emailError) => {
+        console.error("Email notification failed:", emailError);
+      });
+
+      setSubmitted(true);
     } catch (err) {
-  console.error("Submit error:", err);
-  alert("Something went wrong submitting your feedback. Please try again.");
-  setSubmitting(false);
-}
+      console.error("Submit error:", err);
+      alert("Something went wrong submitting your feedback. Please try again.");
+      setSubmitting(false);
     }
+  };
   
 
   const goToStep = (i: number) => {
@@ -899,6 +931,11 @@ setSubmitted(true);
   const permissionsDone = !!permissionTouched;
 
   const completed = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
+
+  useEffect(() => {
+    // Clear invalid flags for sections that become complete
+    setInvalidSections((prev) => prev.map((inv, i) => (completed[i] ? false : inv)));
+  }, [completed]);
 
   // ── Success Screen ──────────────────────────────────────────────────────────
   if (submitted) {
@@ -948,7 +985,7 @@ setSubmitted(true);
         <form className="survey-body" onSubmit={handleSubmit}>
 
           {/* ── 01 Customer Information ── */}
-          <div className="card" id="step-info">
+          <div className={`card ${invalidSections[0] ? 'invalid' : ''}`} id="step-info">
             <div className="section-num">1</div>
             <h2 className="section-title">Customer Information</h2>
             <div className="field-group">
@@ -968,7 +1005,7 @@ setSubmitted(true);
           </div>
 
           {/* ── 02 Event Details ── */}
-          <div className="card" id="step-details">
+          <div className={`card ${invalidSections[1] ? 'invalid' : ''}`} id="step-details">
             <div className="section-num">2</div>
             <h2 className="section-title">Event Details</h2>
             <div className="field-group">
@@ -1004,7 +1041,7 @@ setSubmitted(true);
           </div>
 
           {/* ── 03 Experience Ratings ── */}
-          <div className="card" id="step-ratings">
+          <div className={`card ${invalidSections[2] ? 'invalid' : ''}`} id="step-ratings">
             <div className="section-num">3</div>
             <h2 className="section-title">Experience Ratings</h2>
             <div className="ratings-grid">
@@ -1017,7 +1054,7 @@ setSubmitted(true);
           </div>
 
           {/* ── 04 Your Review ── */}
-          <div className="card" id="step-feedback">
+          <div className={`card ${invalidSections[3] ? 'invalid' : ''}`} id="step-feedback">
             <div className="section-num">4</div>
             <h2 className="section-title">Your Review</h2>
             <div className="field">
@@ -1027,7 +1064,7 @@ setSubmitted(true);
           </div>
 
           {/* ── 05 Private Feedback ── */}
-          <div className="card">
+          <div className={`card ${invalidSections[3] ? 'invalid' : ''}`} id="step-private-feedback">
             <div className="section-num">5</div>
             <h2 className="section-title">Private Feedback</h2>
             <div className="private-badge">
@@ -1045,7 +1082,7 @@ setSubmitted(true);
           </div>
 
           {/* ── 06 Review Permissions ── */}
-          <div className="card" id="step-permissions">
+          <div className={`card ${invalidSections[4] ? 'invalid' : ''}`} id="step-permissions">
             <div className="section-num">6</div>
             <h2 className="section-title">Review Permissions</h2>
             <div className="toggle-group">
