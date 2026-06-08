@@ -233,7 +233,7 @@ const FontStyle = () => (
 
     /* ─── Fields ──────────────────────────────────────────────────── */
     .field-group { display: flex; flex-direction: column; gap: 20px; }
-    .field       { display: flex; flex-direction: column; gap: 7px; }
+    .field       { display: flex; flex-direction: column; gap: 7px; position: relative; }
 
     label.field-label {
       font-family: 'DM Sans', sans-serif;
@@ -309,6 +309,8 @@ const FontStyle = () => (
       border-color: var(--border-hover);
     }
 
+    .rating-row.invalid { border-color: #e45757; }
+
     .rating-label {
       font-size: 14px;
       font-weight: 400;
@@ -357,6 +359,7 @@ const FontStyle = () => (
       transition: border-color 0.2s ease;
     }
     .toggle-row:has(input:checked) { border-color: var(--border-hover); }
+    .toggle-row.invalid { border-color: #e45757; }
 
     .toggle-text { font-size: 14px; font-weight: 400; color: var(--charcoal-mid); flex: 1; }
 
@@ -491,6 +494,29 @@ const FontStyle = () => (
       padding: 4px 10px;
       margin-top: -10px;
       margin-bottom: 18px;
+    }
+
+    /* invalid field marker */
+    .field.invalid::after,
+    .rating-row.invalid::after,
+    .toggle-row.invalid::after {
+      content: '!';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #e45757;
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(228,87,87,0.12);
+      pointer-events: none;
+      z-index: 5;
     }
 
     /* ─── Submit ──────────────────────────────────────────────────── */
@@ -680,13 +706,17 @@ function ProgressBar({ activeStep, completed, onStepClick }: { activeStep: numbe
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({
+  id,
   label,
   value,
   onChange,
+  invalid,
 }: {
+  id?: string;
   label: string;
   value: number;
   onChange: (value: number) => void;
+  invalid?: boolean;
 }) {
   const [hovered, setHovered] = useState(0);
   const [tracking, setTracking] = useState(false);
@@ -702,7 +732,7 @@ function StarRating({
   }, []);
 
   return (
-    <div className={`rating-row${value > 0 ? " rated" : ""}`}>
+    <div id={id ? `rating-${id}` : undefined} className={`rating-row${value > 0 ? " rated" : ""}${invalid ? ' invalid' : ''}`}>
       <span className="rating-label">{label}</span>
       <div className="stars-row">
         {[1, 2, 3, 4, 5].map((star) => {
@@ -757,14 +787,16 @@ function Toggle({
   id,
   checked,
   onChange,
+  invalid = false,
 }: {
   label: string;
   id: string;
   checked: boolean;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  invalid?: boolean;
 }) {
   return (
-    <div className="toggle-row">
+    <div className={`toggle-row ${invalid ? 'invalid' : ''}`}>
       <span className="toggle-text">{label}</span>
       <label className="toggle-switch" htmlFor={id}>
         <input id={id} type="checkbox" checked={checked} onChange={onChange} />
@@ -813,7 +845,7 @@ export default function App() {
     publishReview: false, useName: false,
   });
 
-  const set       = (key: keyof SurveyForm) => (e: any) => setForm((f) => ({ ...f, [key]: e.target.value }));
+    const set       = (key: keyof SurveyForm) => (e: any) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setRating = (key: keyof SurveyForm) => (v: number) => setForm((f) => ({ ...f, [key]: v }));
   const [permissionTouched, setPermissionTouched] = useState(false);
   const setToggle = (key: keyof SurveyForm) => (e: any) => {
@@ -824,7 +856,7 @@ export default function App() {
   const derivedStep = getActiveStep(form);
   const [uiActiveStep, setUiActiveStep] = useState<number>(derivedStep);
   const [submitting, setSubmitting] = useState(false);
-  const [invalidSections, setInvalidSections] = useState<boolean[]>([false, false, false, false, false]);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setUiActiveStep(derivedStep);
@@ -832,22 +864,42 @@ export default function App() {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
-    // Validate sections before submitting
-    const completedLocal = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
-    const invalid = completedLocal.map((c) => !c);
-    if (invalid.some(Boolean)) {
-      setInvalidSections(invalid);
-      // scroll to first invalid section
-      const firstInvalid = invalid.findIndex(Boolean);
-      const ids = [
-        'step-info',
-        'step-details',
-        'step-ratings',
-        'step-feedback',
-        'step-permissions',
+    // Validate individual fields
+    const invalid: Record<string, boolean> = {};
+    if (!form.name || !form.name.trim()) invalid.name = true;
+    if (!form.email || !form.email.trim()) invalid.email = true;
+    if (!form.eventDate) invalid.eventDate = true;
+    if (!form.inflatable || !form.inflatable.trim()) invalid.inflatable = true;
+    if (!form.howHeard || !form.howHeard.trim()) invalid.howHeard = true;
+    if (form.ratingOverall <= 0) invalid.ratingOverall = true;
+    if (form.ratingComm <= 0) invalid.ratingComm = true;
+    if (form.ratingSetup <= 0) invalid.ratingSetup = true;
+    if (form.ratingClean <= 0) invalid.ratingClean = true;
+    if (form.ratingBooking <= 0) invalid.ratingBooking = true;
+    if (!form.favorite || !form.favorite.trim()) invalid.favorite = true;
+    if (!form.improve?.trim() && !form.improveSkills?.trim()) {
+      invalid.improve = true;
+      invalid.improveSkills = true;
+    }
+    if (!permissionTouched) {
+      invalid.publishReview = true;
+      invalid.useName = true;
+    }
+
+    if (Object.keys(invalid).length > 0) {
+      setInvalidFields(invalid);
+      // find first invalid field and scroll to it
+      const order = [
+        'name','email','eventDate',
+        'inflatable','howHeard',
+        'ratingOverall','ratingComm','ratingSetup','ratingClean','ratingBooking',
+        'favorite','improve','improveSkills','publishReview','useName'
       ];
-      const el = document.getElementById(ids[firstInvalid]);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const firstKey = order.find((k) => invalid[k]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey) || document.getElementById(`rating-${firstKey}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -933,9 +985,29 @@ export default function App() {
   const completed = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
 
   useEffect(() => {
-    // Clear invalid flags for sections that become complete
-    setInvalidSections((prev) => prev.map((inv, i) => (completed[i] ? false : inv)));
-  }, [completed]);
+    // Clear invalid flags for individual fields when they become valid
+    setInvalidFields((prev) => {
+      const next = { ...prev };
+      if (form.name && form.name.trim()) delete next.name;
+      if (form.email && form.email.trim()) delete next.email;
+      if (form.eventDate) delete next.eventDate;
+      if (form.inflatable && form.inflatable.trim()) delete next.inflatable;
+      if (form.howHeard && form.howHeard.trim()) delete next.howHeard;
+      if (form.ratingOverall > 0) delete next.ratingOverall;
+      if (form.ratingComm > 0) delete next.ratingComm;
+      if (form.ratingSetup > 0) delete next.ratingSetup;
+      if (form.ratingClean > 0) delete next.ratingClean;
+      if (form.ratingBooking > 0) delete next.ratingBooking;
+      if (form.favorite && form.favorite.trim()) delete next.favorite;
+      if (form.improve && form.improve.trim()) delete next.improve;
+      if (form.improveSkills && form.improveSkills.trim()) delete next.improveSkills;
+      if (permissionTouched) {
+        delete next.publishReview;
+        delete next.useName;
+      }
+      return next;
+    });
+  }, [form, permissionTouched]);
 
   // ── Success Screen ──────────────────────────────────────────────────────────
   if (submitted) {
@@ -985,19 +1057,19 @@ export default function App() {
         <form className="survey-body" onSubmit={handleSubmit}>
 
           {/* ── 01 Customer Information ── */}
-          <div className={`card ${invalidSections[0] ? 'invalid' : ''}`} id="step-info">
+          <div className="card" id="step-info">
             <div className="section-num">1</div>
             <h2 className="section-title">Customer Information</h2>
             <div className="field-group">
-              <div className="field">
+              <div className={`field ${invalidFields['name'] ? 'invalid' : ''}`}>
                 <label className="field-label" htmlFor="name">Customer Name</label>
                 <input id="name" type="text" placeholder="Your full name" value={form.name} onChange={set("name")} />
               </div>
-              <div className="field">
+                <div className={`field ${invalidFields['email'] ? 'invalid' : ''}`}>
                 <label className="field-label" htmlFor="email">Email Address</label>
                 <input id="email" type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
               </div>
-              <div className="field">
+                <div className={`field ${invalidFields['eventDate'] ? 'invalid' : ''}`}>
                 <label className="field-label" htmlFor="eventDate">Event Date</label>
                 <input id="eventDate" type="date" value={form.eventDate} onChange={set("eventDate")} />
               </div>
@@ -1005,11 +1077,11 @@ export default function App() {
           </div>
 
           {/* ── 02 Event Details ── */}
-          <div className={`card ${invalidSections[1] ? 'invalid' : ''}`} id="step-details">
+          <div className="card" id="step-details">
             <div className="section-num">2</div>
             <h2 className="section-title">Event Details</h2>
             <div className="field-group">
-              <div className="field">
+              <div className={`field ${invalidFields['inflatable'] ? 'invalid' : ''}`}>
                 <label className="field-label" htmlFor="inflatable">Which Inflatable Did You Rent?</label>
                 <div className="select-wrapper">
                   <select id="inflatable" value={form.inflatable} onChange={set("inflatable")}> 
@@ -1022,7 +1094,7 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div className="field">
+              <div className={`field ${invalidFields['howHeard'] ? 'invalid' : ''}`}>
                 <label className="field-label" htmlFor="howHeard">How Did You Hear About Us?</label>
                 <div className="select-wrapper">
                   <select id="howHeard" value={form.howHeard} onChange={set("howHeard")}>
@@ -1041,53 +1113,53 @@ export default function App() {
           </div>
 
           {/* ── 03 Experience Ratings ── */}
-          <div className={`card ${invalidSections[2] ? 'invalid' : ''}`} id="step-ratings">
+          <div className="card" id="step-ratings">
             <div className="section-num">3</div>
             <h2 className="section-title">Experience Ratings</h2>
             <div className="ratings-grid">
-              <StarRating label="Overall Experience"       value={form.ratingOverall} onChange={setRating("ratingOverall")} />
-              <StarRating label="Communication"            value={form.ratingComm}    onChange={setRating("ratingComm")} />
-              <StarRating label="Setup & Takedown"         value={form.ratingSetup}   onChange={setRating("ratingSetup")} />
-              <StarRating label="Cleanliness of Equipment" value={form.ratingClean}   onChange={setRating("ratingClean")} />
-              <StarRating label="Booking Process"          value={form.ratingBooking} onChange={setRating("ratingBooking")} />
+              <StarRating id="ratingOverall" label="Overall Experience"       value={form.ratingOverall} onChange={setRating("ratingOverall")} invalid={!!invalidFields['ratingOverall']} />
+              <StarRating id="ratingComm" label="Communication"            value={form.ratingComm}    onChange={setRating("ratingComm")} invalid={!!invalidFields['ratingComm']} />
+              <StarRating id="ratingSetup" label="Setup & Takedown"         value={form.ratingSetup}   onChange={setRating("ratingSetup")} invalid={!!invalidFields['ratingSetup']} />
+              <StarRating id="ratingClean" label="Cleanliness of Equipment" value={form.ratingClean}   onChange={setRating("ratingClean")} invalid={!!invalidFields['ratingClean']} />
+              <StarRating id="ratingBooking" label="Booking Process"          value={form.ratingBooking} onChange={setRating("ratingBooking")} invalid={!!invalidFields['ratingBooking']} />
             </div>
           </div>
 
           {/* ── 04 Your Review ── */}
-          <div className={`card ${invalidSections[3] ? 'invalid' : ''}`} id="step-feedback">
+          <div className="card" id="step-feedback">
             <div className="section-num">4</div>
             <h2 className="section-title">Your Review</h2>
-            <div className="field">
+            <div className={`field ${invalidFields['favorite'] ? 'invalid' : ''}`}>
               <label className="field-label" htmlFor="favorite">What was your favorite part of working with Inflate Twenty-Eight?</label>
               <textarea id="favorite" placeholder="We'd love to hear what stood out…" value={form.favorite} onChange={set("favorite")} style={{ minHeight: 140 }} />
             </div>
           </div>
 
           {/* ── 05 Private Feedback ── */}
-          <div className={`card ${invalidSections[3] ? 'invalid' : ''}`} id="step-private-feedback">
+          <div className="card" id="step-private-feedback">
             <div className="section-num">5</div>
             <h2 className="section-title">Private Feedback</h2>
             <div className="private-badge">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               Visible only to our team
             </div>
-            <div className="field">
+            <div className={`field ${invalidFields['improve'] ? 'invalid' : ''}`}>
               <label className="field-label" htmlFor="improve">What could we improve?</label>
               <textarea id="improve" placeholder="Your honest feedback helps us grow. This is never published." value={form.improve} onChange={set("improve")} style={{ minHeight: 140 }} />
             </div>
-              <div className="field">
-                <label className="field-label" htmlFor="improveSkills">Were there any issues, damages, or safety concerns at your event?</label>
-                <textarea id="improveSkills" placeholder="Please describe any problems, equipment damage, or safety concerns (this is private)." value={form.improveSkills} onChange={set("improveSkills")} style={{ minHeight: 120 }} />
-              </div>
+            <div className={`field ${invalidFields['improveSkills'] ? 'invalid' : ''}`}>
+              <label className="field-label" htmlFor="improveSkills">Were there any issues, damages, or safety concerns at your event?</label>
+              <textarea id="improveSkills" placeholder="Please describe any problems, equipment damage, or safety concerns (this is private)." value={form.improveSkills} onChange={set("improveSkills")} style={{ minHeight: 120 }} />
+            </div>
           </div>
 
           {/* ── 06 Review Permissions ── */}
-          <div className={`card ${invalidSections[4] ? 'invalid' : ''}`} id="step-permissions">
+          <div className="card" id="step-permissions">
             <div className="section-num">6</div>
             <h2 className="section-title">Review Permissions</h2>
             <div className="toggle-group">
-              <Toggle id="publishReview" label="May we publish your review on our website?"    checked={form.publishReview} onChange={setToggle("publishReview")} />
-              <Toggle id="useName"       label="May we use your first name with your review?"  checked={form.useName}      onChange={setToggle("useName")} />
+              <Toggle id="publishReview" label="May we publish your review on our website?"    checked={form.publishReview} onChange={setToggle("publishReview")} invalid={!!invalidFields['publishReview']} />
+              <Toggle id="useName"       label="May we use your first name with your review?"  checked={form.useName}      onChange={setToggle("useName")} invalid={!!invalidFields['useName']} />
             </div>
           </div>
 
@@ -1112,8 +1184,8 @@ export default function App() {
 
           {/* ── Submit ── */}
           <div className="submit-section">
-            <button type="submit" className="submit-btn">
-              Submit Feedback
+            <button type="submit" className="submit-btn" disabled={submitting} aria-busy={submitting}>
+              {submitting ? 'Submitting...' : 'Submit Feedback'}
             </button>
             <p className="submit-note">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
