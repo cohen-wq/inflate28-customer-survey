@@ -154,9 +154,27 @@ const FontStyle = () => (
       color: var(--gray-light);
       transition: all 0.25s ease;
       flex-shrink: 0;
-    }
+      position: relative; /* Added position relative for step dot */
     .progress-step.done  .step-dot { background: var(--accent); border-color: var(--accent); color: white; }
     .progress-step.active .step-dot { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 0 0 4px var(--accent-light); }
+    /* alert badge for sections with missing required fields */
+    .progress-step.alert .step-dot::after {
+      content: '!';
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e45757;
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      box-shadow: 0 2px 8px rgba(228,87,87,0.12);
+    }
 
     .step-label {
       font-family: 'DM Sans', sans-serif;
@@ -675,16 +693,18 @@ const STEPS = [
   { label: "Permissions" },
 ];
 
-function ProgressBar({ activeStep, completed, onStepClick }: { activeStep: number; completed?: boolean[]; onStepClick?: (i: number) => void }) {
+function ProgressBar({ activeStep, completed, onStepClick, alert }: { activeStep: number; completed?: boolean[]; onStepClick?: (i: number) => void; alert?: boolean[] }) {
   return (
     <div className="progress-wrap">
       <div className="progress-steps">
         {STEPS.map((s, i) => {
           const state = completed?.[i] ? "done" : i === activeStep ? "active" : "";
+          const showCheck = !!completed?.[i];
+          const alertClass = alert?.[i] ? 'alert' : '';
           return (
             <div
               key={i}
-              className={`progress-step ${state}`}
+              className={`progress-step ${state} ${alertClass}`}
               onClick={() => onStepClick?.(i)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -697,13 +717,7 @@ function ProgressBar({ activeStep, completed, onStepClick }: { activeStep: numbe
               style={onStepClick ? { cursor: "pointer" } : undefined}
             >
               <div className="step-dot">
-                {i < activeStep ? (
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="2 6 5 9 10 3" />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
+                {i + 1}
               </div>
               <span className="step-label">{s.label}</span>
             </div>
@@ -973,6 +987,13 @@ export default function App() {
   const permissionsDone = !!permissionTouched;
 
   const completed = [infoDone, detailsDone, ratingsDone, feedbackDone, permissionsDone];
+  const sectionMissing = [
+    !infoDone,
+    !detailsDone,
+    !ratingsDone,
+    !feedbackDone,
+    !permissionsDone,
+  ];
 
   useEffect(() => {
     // Clear invalid flags for individual fields when they become valid
@@ -1067,7 +1088,7 @@ export default function App() {
         </header>
 
         {/* Progress */}
-        <ProgressBar activeStep={uiActiveStep} completed={completed} onStepClick={goToStep} />
+        <ProgressBar activeStep={uiActiveStep} completed={completed} onStepClick={goToStep} alert={sectionMissing} />
 
         <form className="survey-body" onSubmit={handleSubmit}>
 
